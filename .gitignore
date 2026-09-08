@@ -1,0 +1,15 @@
+# Local patient data - never commit real/demo patient records to GitHub
+data/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# OS junk
+.DS_Store
+Thumbs.db

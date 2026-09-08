@@ -1,0 +1,148 @@
+"""
+translations.py
+----------------
+All on-screen and on-report text lives here, in two languages.
+The app never stores label text inside patient_data_input.json —
+only real patient data and model results go in that file. The
+correct label strings are looked up from here at display/PDF time,
+based on whatever language is chosen in the sidebar.
+
+To add a new language later: copy one whole dict, translate the
+values (not the keys), and add it to LABELS below.
+"""
+
+LABELS = {
+    "en": {
+        "APP_TITLE": "Offline Retina Screening",
+        "SIDEBAR_LANGUAGE": "Report language",
+        "SIDEBAR_NAV": "Menu",
+        "NAV_HISTORY": "Patient history",
+        "NAV_NEW": "New patient entry",
+        "WORKER_LABEL": "Health worker",
+
+        "HISTORY_HEADER": "Patient history",
+        "HISTORY_SUB": "All records are stored on this device only.",
+        "HISTORY_EMPTY": "No patients yet. Use 'New patient entry' to screen your first patient.",
+
+        "FORM_HEADER": "New patient entry",
+        "FORM_ID_PREVIEW": "This patient will be assigned ID",
+        "NAME": "Patient Name",
+        "AGE": "Age",
+        "GENDER": "Gender",
+        "NURSE": "Attending Nurse",
+        "HISTORY": "Medical History",
+        "HISTORY_PLACEHOLDER": "e.g. Diabetes — 8 years, on insulin",
+        "UPLOAD_LABEL": "Retina photo",
+        "UPLOAD_HELP": "Camera-captured retina image. Upload a file for now until the phone+lens hardware is ready.",
+        "SAVE_BUTTON": "Save patient",
+        "SAVE_SUCCESS": "Patient saved",
+
+        "DETAIL_RUN_ANALYSIS": "Run AI analysis",
+        "DETAIL_RERUN_ANALYSIS": "Re-run AI analysis",
+        "ANALYSIS_RUNNING": "Analyzing image...",
+        "ID": "Patient ID",
+        "DATE": "Date of Screening",
+
+        "TITLE": "PRIMARY HEALTH CENTER - CLINICAL REPORT",
+        "TITLE_WORKER": "PRIMARY HEALTH CENTER - SCREENING RESULT",
+        "PATIENT_DETAILS": "Patient Details",
+        "FINDINGS": "Findings",
+        "MICROANEURYSMS": "Microaneurysms: Detected in recent scan.",
+        "MICROANEURYSMS_NEG": "Microaneurysms: Not detected.",
+        "HAEMORRHAGES": "Haemorrhages: Active bleeding detected.",
+        "HAEMORRHAGES_NEG": "Haemorrhages: Not detected.",
+        "HARD_EXUDATES": "Hard Exudates: Lipid deposits detected.",
+        "HARD_EXUDATES_NEG": "Hard Exudates: Not detected.",
+        "SOFT_EXUDATES": "Soft Exudates: Ischemic spots detected.",
+        "SOFT_EXUDATES_NEG": "Soft Exudates: Not detected.",
+        "NONE": "No significant lesions detected.",
+
+        "SEVERITY": "DR Severity Grade",
+        "CONFIDENCE": "Model Confidence",
+        "RECOMMENDATION": "Recommendation",
+        "REFER_TEXT": "Referral advised - please consult an ophthalmologist within 2 weeks.",
+        "CLEAR_TEXT": "No referral needed at this time - routine annual screening advised.",
+        "FOOTER": "Generated offline by an AI-assisted screening tool. Final diagnosis must be confirmed by a qualified ophthalmologist.",
+
+        "DOWNLOAD_DOCTOR_PDF": "Download doctor report (PDF)",
+        "DOWNLOAD_WORKER_PDF": "Download health worker report (PDF)",
+        "FLAGGED_BANNER": "FLAGGED FOR DOCTOR REVIEW",
+        "CLEAR_BANNER": "NO REFERRAL NEEDED",
+        "SEVERITY_LEVELS": {
+            0: "No DR",
+            1: "Mild",
+            2: "Moderate",
+            3: "Severe",
+            4: "Proliferative DR",
+        },
+    },
+
+    "hi": {
+        "APP_TITLE": "ऑफ़लाइन रेटिना स्क्रीनिंग",
+        "SIDEBAR_LANGUAGE": "रिपोर्ट की भाषा",
+        "SIDEBAR_NAV": "मेनू",
+        "NAV_HISTORY": "रोगी इतिहास",
+        "NAV_NEW": "नई रोगी प्रविष्टि",
+        "WORKER_LABEL": "स्वास्थ्य कार्यकर्ता",
+
+        "HISTORY_HEADER": "रोगी इतिहास",
+        "HISTORY_SUB": "सभी रिकॉर्ड केवल इसी डिवाइस पर सुरक्षित हैं।",
+        "HISTORY_EMPTY": "अभी तक कोई रोगी नहीं है। पहली जांच के लिए 'नई रोगी प्रविष्टि' का उपयोग करें।",
+
+        "FORM_HEADER": "नई रोगी प्रविष्टि",
+        "FORM_ID_PREVIEW": "इस रोगी को यह आईडी दी जाएगी",
+        "NAME": "रोगी का नाम",
+        "AGE": "आयु",
+        "GENDER": "लिंग",
+        "NURSE": "उपस्थित नर्स",
+        "HISTORY": "चिकित्सा इतिहास",
+        "HISTORY_PLACEHOLDER": "जैसे - मधुमेह, 8 वर्ष से, इंसुलिन पर",
+        "UPLOAD_LABEL": "रेटिना फोटो",
+        "UPLOAD_HELP": "कैमरे से ली गई रेटिना छवि। जब तक फोन+लेंस उपकरण तैयार नहीं होता, फ़ाइल अपलोड करें।",
+        "SAVE_BUTTON": "रोगी सहेजें",
+        "SAVE_SUCCESS": "रोगी सहेजा गया",
+
+        "DETAIL_RUN_ANALYSIS": "एआई विश्लेषण चलाएँ",
+        "DETAIL_RERUN_ANALYSIS": "एआई विश्लेषण फिर से चलाएँ",
+        "ANALYSIS_RUNNING": "छवि का विश्लेषण किया जा रहा है...",
+        "ID": "रोगी आईडी",
+        "DATE": "जांच की तारीख",
+
+        "TITLE": "प्राथमिक स्वास्थ्य केंद्र - चिकित्सा रिपोर्ट",
+        "TITLE_WORKER": "प्राथमिक स्वास्थ्य केंद्र - जांच परिणाम",
+        "PATIENT_DETAILS": "रोगी का विवरण",
+        "FINDINGS": "निष्कर्ष",
+        "MICROANEURYSMS": "माइक्रोएन्यूरिज़्म: हाल की जांच में पाए गए।",
+        "MICROANEURYSMS_NEG": "माइक्रोएन्यूरिज़्म: नहीं पाए गए।",
+        "HAEMORRHAGES": "रक्तस्राव: सक्रिय रक्तस्राव पाया गया।",
+        "HAEMORRHAGES_NEG": "रक्तस्राव: नहीं पाया गया।",
+        "HARD_EXUDATES": "हार्ड एक्सुडेट्स: वसा जमाव पाया गया।",
+        "HARD_EXUDATES_NEG": "हार्ड एक्सुडेट्स: नहीं पाया गया।",
+        "SOFT_EXUDATES": "सॉफ्ट एक्सुडेट्स: इस्कीमिक धब्बे पाए गए।",
+        "SOFT_EXUDATES_NEG": "सॉफ्ट एक्सुडेट्स: नहीं पाया गया।",
+        "NONE": "कोई महत्वपूर्ण घाव नहीं पाया गया।",
+
+        "SEVERITY": "डीआर गंभीरता स्तर",
+        "CONFIDENCE": "मॉडल विश्वास स्तर",
+        "RECOMMENDATION": "सिफारिश",
+        "REFER_TEXT": "रेफ़रल की सलाह दी जाती है - कृपया 2 सप्ताह के भीतर नेत्र विशेषज्ञ से परामर्श करें।",
+        "CLEAR_TEXT": "फिलहाल रेफ़रल आवश्यक नहीं है - वार्षिक नियमित जांच की सलाह दी जाती है।",
+        "FOOTER": "यह रिपोर्ट ऑफ़लाइन एआई-सहायता प्राप्त स्क्रीनिंग उपकरण द्वारा तैयार की गई है। अंतिम निदान की पुष्टि योग्य नेत्र विशेषज्ञ द्वारा की जानी चाहिए।",
+
+        "DOWNLOAD_DOCTOR_PDF": "डॉक्टर रिपोर्ट डाउनलोड करें (PDF)",
+        "DOWNLOAD_WORKER_PDF": "स्वास्थ्य कार्यकर्ता रिपोर्ट डाउनलोड करें (PDF)",
+        "FLAGGED_BANNER": "डॉक्टर समीक्षा हेतु चिह्नित",
+        "CLEAR_BANNER": "रेफ़रल आवश्यक नहीं",
+        "SEVERITY_LEVELS": {
+            0: "कोई डीआर नहीं",
+            1: "हल्का",
+            2: "मध्यम",
+            3: "गंभीर",
+            4: "प्रोलिफेरेटिव डीआर",
+        },
+    },
+}
+
+
+def get_labels(lang_code: str) -> dict:
+    return LABELS.get(lang_code, LABELS["en"])
