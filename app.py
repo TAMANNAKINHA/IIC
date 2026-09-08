@@ -1,12 +1,12 @@
-
-
 import streamlit as st
 from utils import storage, analyze, report
-from utils.translations import get_labels
+from utils.translations import get_labels, LANG_NAMES
 
-st.set_page_config(page_title="Drishti", layout="wide")
+st.set_page_config(page_title="Offline Retina Screening", layout="wide")
 
 # ---------------- Sidebar: language + health worker + navigation ----------------
+LANG_CODES = list(LANG_NAMES.keys())  # 10 languages: en, hi, bn, mr, te, ta, gu, kn, or, ml
+
 if "lang" not in st.session_state:
     st.session_state.lang = "en"
 if "selected_patient" not in st.session_state:
@@ -16,10 +16,10 @@ if "page" not in st.session_state:
 
 with st.sidebar:
     lang_choice = st.selectbox(
-        "Report language / रिपोर्ट भाषा",
-        options=["en", "hi"],
-        format_func=lambda c: "English" if c == "en" else "हिन्दी (Hindi)",
-        index=0 if st.session_state.lang == "en" else 1,
+        "Report language",
+        options=LANG_CODES,
+        format_func=lambda c: LANG_NAMES[c],
+        index=LANG_CODES.index(st.session_state.lang),
     )
     st.session_state.lang = lang_choice
     labels = get_labels(st.session_state.lang)
@@ -62,7 +62,7 @@ def render_new_patient_page():
             labels["UPLOAD_LABEL"],
             options=["upload", "camera"],
             format_func=lambda v: labels["UPLOAD_OPTION"] if v == "upload" else labels["CAMERA_OPTION"],
-            index=0,  # upload stays the default choice for now
+            index=0,
             horizontal=True,
             label_visibility="collapsed",
         )
@@ -82,9 +82,11 @@ def render_new_patient_page():
         if submitted:
             image_bytes = image_file.getvalue() if image_file else None
             if capture_mode == "camera":
-                image_ext = ".jpg"  # st.camera_input always returns JPEG
+                image_ext = ".jpg"
             else:
                 image_ext = ("." + image_file.name.split(".")[-1].lower()) if image_file else ".jpg"
+
+            # Record is written to disk (patient_data_input.json) immediately on save.
             record = storage.save_patient(
                 name=name, age=int(age), gender=gender, nurse=nurse,
                 history=history, image_bytes=image_bytes, image_ext=image_ext,
@@ -108,14 +110,13 @@ def render_history_page():
     for record in records:
         analysis = record.get("analysis")
         if analysis is None:
-            status_color = "gray"
-            status_text = "—"
+            status_color, status_text = "gray", "—"
+        elif not analysis.get("quality_ok", True):
+            status_color, status_text = "orange", labels["QUALITY_REJECTED"]
         elif analysis.get("flagged"):
-            status_color = "red"
-            status_text = labels["FLAGGED_BANNER"]
+            status_color, status_text = "red", labels["FLAGGED_BANNER"]
         else:
-            status_color = "green"
-            status_text = labels["CLEAR_BANNER"]
+            status_color, status_text = "green", labels["CLEAR_BANNER"]
 
         cols = st.columns([1, 3, 2, 2, 2])
         cols[0].markdown(f":{status_color}[●]")
@@ -146,18 +147,25 @@ def render_detail_page():
 
     col_img, col_info = st.columns([1, 1])
 
+    analysis = record.get("analysis")
+    annotated_path = (analysis or {}).get("annotated_image_path")
+
     with col_img:
-        if record.get("image_abs_path"):
+        # Show the annotated (model output) image once analysis has run;
+        # otherwise show the raw capture.
+        if annotated_path:
+            st.image(annotated_path, caption=labels["ANNOTATED_IMAGE_LABEL"], use_container_width=True)
+        elif record.get("image_abs_path"):
             st.image(record["image_abs_path"], use_container_width=True)
 
-        run_label = labels["DETAIL_RERUN_ANALYSIS"] if record.get("analysis") else labels["DETAIL_RUN_ANALYSIS"]
+        run_label = labels["DETAIL_RERUN_ANALYSIS"] if analysis else labels["DETAIL_RUN_ANALYSIS"]
         if st.button(run_label, type="primary", use_container_width=True):
             with st.spinner(labels["ANALYSIS_RUNNING"]):
                 if not record.get("image_abs_path"):
                     st.error("No image on file for this patient.")
                 else:
-                    analysis = analyze.run_model(record["image_abs_path"])
-                    record = storage.update_analysis(patient_id, analysis)
+                    new_analysis = analyze.run_model(record["image_abs_path"])
+                    record = storage.update_analysis(patient_id, new_analysis)
             st.rerun()
 
     with col_info:
@@ -167,39 +175,40 @@ def render_detail_page():
         st.write(f"**{labels['DATE']}:** {record.get('date_captured', '')}")
         st.write(f"**{labels['HISTORY']}:** {record.get('history') or '-'}")
 
-        analysis = record.get("analysis")
         if analysis:
             st.divider()
-            if analysis.get("flagged"):
-                st.error(labels["FLAGGED_BANNER"])
+
+            if not analysis.get("quality_ok", True):
+                st.warning(labels["QUALITY_REJECTED"])
             else:
-                st.success(labels["CLEAR_BANNER"])
+                if analysis.get("flagged"):
+                    st.error(labels["FLAGGED_BANNER"])
+                else:
+                    st.success(labels["CLEAR_BANNER"])
 
-            sev_text = labels["SEVERITY_LEVELS"].get(analysis["severity_level"], analysis["severity_level"])
-            st.write(f"**{labels['SEVERITY']}:** {sev_text}")
-            st.write(f"**{labels['CONFIDENCE']}:** {round(analysis['confidence'] * 100)}%")
+                sev_text = labels["SEVERITY_LEVELS"].get(analysis["severity_level"], analysis["severity_level"])
+                st.write(f"**{labels['SEVERITY']}:** {sev_text}")
+                st.write(f"**{labels['CONFIDENCE']}:** {round(analysis['confidence'] * 100)}%")
 
-            if st.session_state.lang == "hi":
-                import os
-                if not os.path.isfile(report.HINDI_FONT_PATH):
+                if report.font_missing(st.session_state.lang):
                     st.warning(
-                        "Hindi PDF font not found. Add fonts/NotoSansDevanagari-Regular.ttf "
-                        "for correctly rendered Hindi PDFs (see fonts/README.txt)."
+                        f"{LANG_NAMES[st.session_state.lang]} PDF font not found in fonts/. "
+                        f"That report will fall back to Latin text (see fonts/README.txt)."
                     )
 
-            doctor_pdf = report.build_pdf(record, labels, st.session_state.lang, audience="doctor")
-            worker_pdf = report.build_pdf(record, labels, st.session_state.lang, audience="worker")
+                doctor_pdf = report.build_pdf(record, labels, st.session_state.lang, audience="doctor")
+                worker_pdf = report.build_pdf(record, labels, st.session_state.lang, audience="worker")
 
-            st.download_button(
-                labels["DOWNLOAD_DOCTOR_PDF"], data=doctor_pdf,
-                file_name=f"{record['patient_id']}_doctor_{st.session_state.lang}.pdf",
-                mime="application/pdf", use_container_width=True,
-            )
-            st.download_button(
-                labels["DOWNLOAD_WORKER_PDF"], data=worker_pdf,
-                file_name=f"{record['patient_id']}_worker_{st.session_state.lang}.pdf",
-                mime="application/pdf", use_container_width=True,
-            )
+                st.download_button(
+                    labels["DOWNLOAD_DOCTOR_PDF"], data=doctor_pdf,
+                    file_name=f"{record['patient_id']}_doctor_{st.session_state.lang}.pdf",
+                    mime="application/pdf", use_container_width=True,
+                )
+                st.download_button(
+                    labels["DOWNLOAD_WORKER_PDF"], data=worker_pdf,
+                    file_name=f"{record['patient_id']}_worker_{st.session_state.lang}.pdf",
+                    mime="application/pdf", use_container_width=True,
+                )
 
 
 # ================= ROUTER =================

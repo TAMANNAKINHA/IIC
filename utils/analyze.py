@@ -1,101 +1,107 @@
 """
 analyze.py
 ----------
-Runs the full offline inference pipeline:
-    raw image -> image_preprocessor.preprocess_pipeline -> local YOLO model
-Returns a dict with severity grade (canonical string), confidence,
-flagged status, and paths to processed/annotated images.
+Runs the trained YOLO model locally (offline, in-process). Replaces the
+old mock. Flow: preprocess_pipeline() quality-gates + enhances the raw
+image -> YOLO detects lesions on the processed image -> severity is
+derived from which lesion classes were found -> an annotated image
+(boxes drawn) is saved alongside the patient record and surfaced in
+both the Streamlit UI and the PDF reports.
 
-The grade strings match the canonical grades in pipeline.py:
-    NO_DR, MILD, MODERATE, SEVERE, PROLIFERATE_DR
+ADJUST CLASS_MAP below to match your model's actual class names
+(check `model.names` after loading) - these are placeholders based on
+standard DR lesion categories.
 """
 
 import os
-import sys
 from pathlib import Path
+
 import cv2
-import numpy as np
-
-# Add parent directory so we can import image_preprocessor
-PARENT_DIR = str(Path(__file__).resolve().parent.parent.parent)
-if PARENT_DIR not in sys.path:
-    sys.path.append(PARENT_DIR)
-
-from image_preprocessor import preprocess_pipeline
 from ultralytics import YOLO
 
-# Load your local YOLO model once (adjust path to your .pt file)
-MODEL_PATH = os.path.join(PARENT_DIR, "yolo26.pt")
-_model = YOLO(MODEL_PATH)
+from image_preprocessor import preprocess_pipeline
 
-# Mapping from YOLO class index to canonical DR grade string + severity level (0-4)
-# Ensure this order matches your trained model's class order.
-SEVERITY_MAP = {
-    0: ("NO_DR", 0),
-    1: ("MILD", 1),
-    2: ("MODERATE", 2),
-    3: ("SEVERE", 3),
-    4: ("PROLIFERATE_DR", 4),
+MODEL_PATH = os.environ.get("YOLO_MODEL_PATH", "yolo26.pt")
+_model = None  # loaded lazily, once per process
+
+# raw YOLO class name -> internal lesion key. EDIT to match model.names.
+CLASS_MAP = {
+    "microaneurysm": "microaneurysms",
+    "haemorrhage": "haemorrhages",
+    "hard_exudate": "hard_exudates",
+    "soft_exudate": "soft_exudates",
+    "neovascularization": "neovascularization",
 }
+
+CONF_THRESHOLD = 0.10
+
+
+def _get_model() -> YOLO:
+    global _model
+    if _model is None:
+        _model = YOLO(MODEL_PATH)
+    return _model
+
+
+def _derive_severity(detected: dict) -> int:
+    """Rule-based ICDR-style grade from which lesion types were found.
+    If your model/labels give lesion counts rather than just
+    presence/absence, tighten these rules for more accurate grading."""
+    if detected.get("neovascularization"):
+        return 4  # Proliferative DR
+    if detected.get("haemorrhages"):
+        return 3  # Severe NPDR
+    if detected.get("hard_exudates") or detected.get("soft_exudates"):
+        return 2  # Moderate NPDR
+    if detected.get("microaneurysms"):
+        return 1  # Mild NPDR
+    return 0  # No DR
 
 
 def run_model(image_path: str) -> dict:
     """
-    Runs preprocessing + local YOLO inference.
-    Returns dict with:
-        - severity_level: int 0-4
-        - confidence: float
-        - flagged: bool (referable if severity >= 2)
-        - raw_grade: str (canonical, e.g. "MODERATE")
-        - processed_image_path: str
-        - annotated_image_path: str
+    Returns a dict with the same shape the rest of the app expects,
+    plus two new fields: `quality_ok` and `annotated_image_path`.
     """
-    # 1. Preprocess (quality gate + enhancement) – offline
-    success, processed_image_path = preprocess_pipeline(image_path)
+    success, processed_path = preprocess_pipeline(image_path)
     if not success:
-        raise ValueError("Image rejected by quality gate. Recapture required.")
+        return {
+            "quality_ok": False,
+            "severity_level": None,
+            "confidence": None,
+            "flagged": None,
+            "detected": {},
+            "annotated_image_path": None,
+            "model_source": "REJECTED at quality gate - recapture required",
+        }
 
-    # 2. Run local YOLO model
-    results = _model(processed_image_path, conf=0.10)  # adjust conf threshold
+    model = _get_model()
+    results = model(str(processed_path), conf=CONF_THRESHOLD)[0]
 
-    # 3. Extract severity grade
-    probs = results[0].probs  # classification probabilities (if classification model)
-    if probs is not None:
-        top_idx = int(probs.top1)
-        confidence = float(probs.top1conf)
-    else:
-        # Fallback for detection model: use highest-confidence detection's class
-        boxes = results[0].boxes
-        if boxes is not None and len(boxes) > 0:
-            top_idx = int(boxes[0].cls[0].item())
-            confidence = float(boxes[0].conf[0].item())
-        else:
-            top_idx = 0
-            confidence = 0.0
+    detected = {v: False for v in CLASS_MAP.values()}
+    confidences = []
+    for box in results.boxes:
+        cls_name = results.names.get(int(box.cls[0]), "")
+        mapped = CLASS_MAP.get(cls_name)
+        if mapped:
+            detected[mapped] = True
+            confidences.append(float(box.conf[0]))
 
-    grade_name, severity_level = SEVERITY_MAP.get(top_idx, ("NO_DR", 0))
-    flagged = severity_level >= 2
+    severity = _derive_severity(detected)
+    confidence = round(max(confidences), 4) if confidences else 0.0
+    flagged = severity >= 2 or (bool(confidences) and confidence < 0.80)
 
-    # 4. Save annotated image (with YOLO detections)
-    annotated_image_path = _save_annotated_image(results, processed_image_path)
+    # Save the boxes-drawn image next to the source image so it can be
+    # shown in the UI and embedded in the PDF report.
+    annotated_path = str(Path(image_path).parent / "annotated.jpg")
+    cv2.imwrite(annotated_path, results.plot())
 
     return {
-        "severity_level": severity_level,
-        "confidence": round(confidence, 4),
-        "flagged": flagged,
-        "raw_grade": grade_name,        # canonical grade string
-        "processed_image_path": str(processed_image_path),
-        "annotated_image_path": annotated_image_path,
-        "model_source": f"Local YOLO ({MODEL_PATH})",
+        "quality_ok": True,
+        "severity_level": severity,
+        "confidence": confidence,
+        "flagged": bool(flagged),
+        "detected": {k: v for k, v in detected.items() if k != "neovascularization"},
+        "annotated_image_path": annotated_path,
+        "model_source": str(MODEL_PATH),
     }
-
-
-def _save_annotated_image(results, processed_image_path: str) -> str:
-    """Renders YOLO detections on the processed image and saves next to it."""
-    annotated_array = results[0].plot()   # RGB numpy array
-    annotated_bgr = cv2.cvtColor(annotated_array, cv2.COLOR_RGB2BGR)
-    annotated_path = Path(processed_image_path).with_name(
-        f"annotated_{Path(processed_image_path).name}"
-    )
-    cv2.imwrite(str(annotated_path), annotated_bgr)
-    return str(annotated_path)

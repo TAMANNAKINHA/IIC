@@ -1,66 +1,152 @@
 """
 report.py
 ---------
-Builds the PDF report using lingual.py's generate_pdf function.
-This ensures 10‑language support and consistent formatting.
+Builds the PDF report entirely offline using fpdf2. Now supports all
+10 report languages (see translations.py) and embeds the AI-annotated
+retina image (boxes drawn by the YOLO model) instead of only the raw
+capture.
+
+FONTS: fpdf2's core fonts (Arial/Helvetica) cannot render Indic
+scripts. Each non-English language needs a matching Noto Sans TTF in
+./fonts (see fonts/README.txt). If the right font file is missing for
+the selected language, this module falls back to a Latin font/core
+font and the app warns you on-screen.
 """
 
-import sys
-from pathlib import Path
+import os
+from fpdf import FPDF
 
-# Add parent directory (where lingual.py lives) to sys.path
-PARENT_DIR = str(Path(__file__).resolve().parent.parent.parent)
-if PARENT_DIR not in sys.path:
-    sys.path.append(PARENT_DIR)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FONTS_DIR = os.path.join(BASE_DIR, "fonts")
+LATIN_FONT_PATH = os.path.join(FONTS_DIR, "NotoSans-Regular.ttf")
 
-from lingual import generate_pdf  # import the function from lingual.py
+# language code -> Noto font file needed for correct script rendering
+FONT_FILES = {
+    "en": "NotoSans-Regular.ttf",
+    "hi": "NotoSansDevanagari-Regular.ttf",
+    "mr": "NotoSansDevanagari-Regular.ttf",
+    "bn": "NotoSansBengali-Regular.ttf",
+    "te": "NotoSansTelugu-Regular.ttf",
+    "ta": "NotoSansTamil-Regular.ttf",
+    "gu": "NotoSansGujarati-Regular.ttf",
+    "kn": "NotoSansKannada-Regular.ttf",
+    "or": "NotoSansOriya-Regular.ttf",
+    "ml": "NotoSansMalayalam-Regular.ttf",
+}
+
+
+def font_path_for(lang_code: str) -> str:
+    return os.path.join(FONTS_DIR, FONT_FILES.get(lang_code, "NotoSans-Regular.ttf"))
+
+
+def font_missing(lang_code: str) -> bool:
+    return not os.path.isfile(font_path_for(lang_code))
+
+
+def _severity_label(labels: dict, severity_level) -> str:
+    if severity_level is None:
+        return "-"
+    return labels["SEVERITY_LEVELS"].get(severity_level, str(severity_level))
+
+
+def _findings_lines(labels: dict, analysis: dict) -> list:
+    if not analysis or not analysis.get("quality_ok", True):
+        return [labels["NONE"]]
+
+    detected = analysis.get("detected", {})
+    lines = [
+        labels["MICROANEURYSMS"] if detected.get("microaneurysms") else labels["MICROANEURYSMS_NEG"],
+        labels["HAEMORRHAGES"] if detected.get("haemorrhages") else labels["HAEMORRHAGES_NEG"],
+        labels["HARD_EXUDATES"] if detected.get("hard_exudates") else labels["HARD_EXUDATES_NEG"],
+        labels["SOFT_EXUDATES"] if detected.get("soft_exudates") else labels["SOFT_EXUDATES_NEG"],
+    ]
+    if not any(detected.values()):
+        lines = [labels["NONE"]]
+    return lines
+
+
+def _setup_font(pdf: FPDF, lang_code: str) -> str:
+    """Registers the best available font for the language, returns the
+    family name to pass to pdf.set_font(). Falls back safely."""
+    target_path = font_path_for(lang_code)
+    if os.path.isfile(target_path):
+        pdf.add_font("ReportFont", "", target_path, uni=True)
+        return "ReportFont"
+    if os.path.isfile(LATIN_FONT_PATH):
+        pdf.add_font("ReportFont", "", LATIN_FONT_PATH, uni=True)
+        return "ReportFont"
+    return "Helvetica"  # core font, always available, Latin-only
 
 
 def build_pdf(record: dict, labels: dict, lang_code: str, audience: str) -> bytes:
     """
-    `audience` is kept for compatibility but not used – lingual.py
-    produces one report per language, including both doctor and worker
-    levels of detail (actually it's a single report format).
-    We map the frontend record to the data shape expected by lingual.py.
+    audience: "doctor" or "worker"
+    Returns raw PDF bytes, ready for st.download_button.
     """
-    # Convert record to lingual.py's expected patient_data format
+    pdf = FPDF()
+    pdf.add_page()
+    font_family = _setup_font(pdf, lang_code)
+
     analysis = record.get("analysis")
-    if analysis:
-        dr_grade = analysis.get("raw_grade", "UNKNOWN")
-        dr_grade_confidence = analysis.get("confidence")
-        referable = analysis.get("flagged", False)
+
+    # ---- Title ----
+    pdf.set_font(font_family, size=16)
+    title = labels["TITLE"] if audience == "doctor" else labels["TITLE_WORKER"]
+    pdf.multi_cell(0, 10, title)
+    pdf.ln(2)
+
+    # ---- Patient details ----
+    pdf.set_font(font_family, size=13)
+    pdf.multi_cell(0, 8, labels["PATIENT_DETAILS"])
+    pdf.set_font(font_family, size=11)
+    pdf.multi_cell(0, 7, f"{labels['NAME']}: {record.get('name', '')}")
+    pdf.multi_cell(0, 7, f"{labels['ID']}: {record.get('patient_id', '')}")
+    pdf.multi_cell(0, 7, f"{labels['AGE']}: {record.get('age', '')}")
+    pdf.multi_cell(0, 7, f"{labels['GENDER']}: {record.get('gender', '')}")
+    pdf.multi_cell(0, 7, f"{labels['NURSE']}: {record.get('nurse', '')}")
+    pdf.multi_cell(0, 7, f"{labels['DATE']}: {record.get('date_captured', '')}")
+    pdf.multi_cell(0, 7, f"{labels['HISTORY']}: {record.get('history', '') or '-'}")
+    pdf.ln(3)
+
+    # ---- AI-annotated retina image (falls back to raw image) ----
+    image_path = (analysis or {}).get("annotated_image_path") or record.get("image_abs_path")
+    if image_path and os.path.isfile(image_path):
+        pdf.set_font(font_family, size=11)
+        pdf.multi_cell(0, 7, labels["ANNOTATED_IMAGE_LABEL"])
+        try:
+            pdf.image(image_path, w=90)
+            pdf.ln(3)
+        except Exception:
+            pass  # unsupported image format - skip rather than crash the report
+
+    # ---- Findings ----
+    pdf.set_font(font_family, size=13)
+    pdf.multi_cell(0, 8, labels["FINDINGS"])
+    pdf.set_font(font_family, size=11)
+
+    if analysis and not analysis.get("quality_ok", True):
+        pdf.multi_cell(0, 7, labels["QUALITY_REJECTED"])
     else:
-        dr_grade = "UNKNOWN"
-        dr_grade_confidence = None
-        referable = False
+        if audience == "doctor":
+            for line in _findings_lines(labels, analysis):
+                pdf.multi_cell(0, 7, f"- {line}")
 
-    data = {
-        "nurse_name": record.get("nurse", ""),
-        "patient_name": record.get("name", ""),
-        "patient_id": record.get("patient_id", ""),
-        "previous_diseases": [record.get("history", "")],  # lingual expects a list
-        "dr_grade_raw": dr_grade,
-        "dr_grade": dr_grade,  # canonical grade string
-        "dr_grade_index": _grade_to_index(dr_grade),
-        "dr_grade_confidence": dr_grade_confidence,
-        "referable": referable,
-        "is_demo_data": False,  # set as needed
-        "image_path": record.get("image_abs_path"),
-        "annotated_image_path": analysis.get("annotated_image_path") if analysis else None,
-    }
+        if analysis:
+            pdf.ln(2)
+            pdf.multi_cell(0, 7, f"{labels['SEVERITY']}: {_severity_label(labels, analysis.get('severity_level'))}")
+            if audience == "doctor" and analysis.get("confidence") is not None:
+                pdf.multi_cell(0, 7, f"{labels['CONFIDENCE']}: {round(analysis['confidence'] * 100)}%")
 
-    # Call lingual.py's generate_pdf (returns BytesIO)
-    pdf_buffer = generate_pdf(data, lang_code)
-    return pdf_buffer.getvalue()
+            pdf.ln(2)
+            pdf.set_font(font_family, size=13)
+            pdf.multi_cell(0, 8, labels["RECOMMENDATION"])
+            pdf.set_font(font_family, size=11)
+            rec_text = labels["REFER_TEXT"] if analysis.get("flagged") else labels["CLEAR_TEXT"]
+            pdf.multi_cell(0, 7, rec_text)
 
+    # ---- Footer ----
+    pdf.ln(6)
+    pdf.set_font(font_family, size=9)
+    pdf.multi_cell(0, 6, labels["FOOTER"])
 
-def _grade_to_index(grade: str) -> int:
-    mapping = {
-        "NO_DR": 0,
-        "MILD": 1,
-        "MODERATE": 2,
-        "SEVERE": 3,
-        "PROLIFERATE_DR": 4,
-        "UNKNOWN": -1,
-    }
-    return mapping.get(grade, -1)
+    return bytes(pdf.output(dest="S"))
