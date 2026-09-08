@@ -1,115 +1,123 @@
-# Offline Retina Screening — Streamlit App
+# 👁️ Offline Retina Screening — Explainable AI for DR Screening in Rural India
 
-A fully offline patient-entry, AI-screening, and bilingual PDF report
-app for diabetic retinopathy screening, built for the MathWorks
-hackathon problem statement (Explainable AI for DR Screening in
-Rural India).
+**MathWorks Hackathon Problem Statement:** Explainable AI for Diabetic Retinopathy Screening in Rural India
+**Category:** Software · **Domain:** MedTech / BioTech / HealthTech
 
-## What it does
+A fully offline app that lets a health worker with no medical training photograph a patient's retina, get an instant AI screening result, and generate a bilingual (English/Hindi) report — one version for a doctor, one for the patient/health worker — without needing internet access at the point of care.
 
-- Health worker enters patient details (name, age, gender, history) and
-  uploads the retina photo.
-- Each patient gets an automatic **sequential** ID (e.g. `PHC1-0001`,
-  `PHC1-0002`, ...) — not random — stored locally.
-- All patient data + AI results are saved as `patient_data_input.json`
-  next to the image, per patient, under `data/patients/<id>/`.
-- "Run AI analysis" produces a severity grade, confidence score, and
-  per-lesion findings (microaneurysms, haemorrhages, hard exudates,
-  soft exudates). This is currently a **mock** (see below) — swap in
-  your trained YOLO11n model when it's ready.
-- One PDF report can be generated for the **doctor** (full clinical
-  detail) and one for the **health worker** (plain summary +
-  recommendation), in **English or Hindi**, switchable from a single
-  sidebar dropdown — no separate files or pages per language.
-- Everything runs locally. Once the Python packages are installed
-  (a one-time step that needs internet), the app works with Wi-Fi
-  turned off.
+---
 
-## Project structure
+## 🖥️ What the app looks like and does
 
-```
-dr-screening-app/
-├── app.py                  <- Streamlit app (run this)
+The app has exactly **three screens**, navigated from a sidebar on the left. Every label — buttons, fields, report wording — comes from one language dictionary, so the whole app *and* both PDF reports switch between **English and Hindi** from a single dropdown. Nothing is duplicated into separate language files or pages.
+
+### Sidebar (always visible)
+
+| Element | What it does |
+|---|---|
+| Report language dropdown | English or हिन्दी — changes every label and both PDF languages instantly |
+| Health worker name field | Pre-fills "Attending Nurse" on new entries |
+| Navigation buttons | Switch between "Patient history" and "New patient entry" |
+| Offline indicator | "● Working offline" — constant reminder no data leaves the device |
+
+### Screen 1 — Patient History (home screen)
+
+A scrollable list, most recent patient first. Each row shows:
+- 🔴 🟢 ⚪ A status dot — red = flagged for doctor, green = cleared, gray = not analyzed yet
+- Patient name + auto-generated ID (e.g. `PHC1-0001`)
+- Date screened
+- Plain-language result
+- An **Open** button → jumps to that patient's report screen
+
+Empty state shows a friendly prompt instead of a blank page.
+
+### Screen 2 — New Patient Entry (intake form)
+
+Top of screen previews the **next sequential ID** (e.g. `PHC1-0007`) — assigned in order, never random.
+
+Fields:
+- Name of patient
+- Age
+- Gender (dropdown)
+- Attending Nurse (pre-filled)
+- Medical History (free text)
+- **Retina photo** — toggle between:
+  - **Upload a photo** *(default)* — used for the hackathon demo
+  - **Use camera** — opens the device camera directly; ready for when real capture hardware exists
+- **Save patient** button → saves everything, assigns the real ID, and opens the new patient's report screen
+
+### Screen 3 — Patient Detail & Report
+
+**Left side:** the retina photo + a **Run AI analysis** button (becomes "Re-run" after first use).
+
+**Right side:** patient details, and once analyzed:
+- A clear banner: 🔴 **Flagged for doctor review** or 🟢 **No referral needed**
+- DR severity grade (No DR → Proliferative DR)
+- Model confidence %
+- Two download buttons: **Doctor report (PDF)** and **Health worker report (PDF)**, both in the currently selected language
+
+### The two PDF reports
+
+Both come from the *same* saved patient data — nobody retypes anything:
+
+- **Doctor's report** — full clinical detail: lesion-by-lesion breakdown (microaneurysms, haemorrhages, hard exudates, soft exudates), severity grade, confidence, recommendation.
+- **Health worker / patient report** — simplified: severity grade + plain recommendation only, no clinical jargon.
+
+---
+
+## 🧭 Why it's designed this way
+
+| Design choice | Maps to |
+|---|---|
+| Sequential, not random, patient IDs | Village camp workflow — patients logged in order seen |
+| One JSON file per patient (`patient_data_input.json`) | No duplicate data entry between doctor/worker reports |
+| Two report audiences, one dataset | Problem statement's "ophthalmologist validation" requirement |
+| Fully offline, local files only | Rural India's unreliable connectivity constraint |
+
+---
+
+## ⚠️ Current known limitation
+
+The AI step (`utils/analyze.py`) is currently a **mock** — it doesn't run a trained model yet, so the full app flow (entry → capture → analysis → bilingual report) can be built and demoed first. Swapping in the real trained YOLO11n model only requires editing this one file.
+
+---
+
+## 📁 Project structure
+Dhrishti/
+├── app.py ← Streamlit app (run this)
 ├── requirements.txt
-├── fonts/                  <- add a Hindi-capable font here (see fonts/README.txt)
-├── data/                   <- created automatically, holds all patient records (gitignored)
+├── fonts/ ← add a Hindi-capable font here (see fonts/README.txt)
+├── data/ ← created automatically, holds patient records (gitignored)
 └── utils/
-    ├── storage.py          <- local JSON/image storage, sequential IDs
-    ├── translations.py     <- English + Hindi label dictionary
-    ├── analyze.py          <- AI analysis (MOCK — replace with real YOLO11n)
-    └── report.py           <- bilingual PDF generation
-```
+├── storage.py ← local JSON/image storage, sequential IDs
+├── translations.py ← English + Hindi label dictionary
+├── analyze.py ← AI analysis (MOCK — replace with real YOLO11n)
+└── report.py ← bilingual PDF generation
 
-## 1. One-time setup (needs internet, do this once)
+---
+
+## 🚀 Running it locally
 
 ```bash
-# from inside the dr-screening-app folder
+# one-time setup (needs internet)
 python3 -m venv .venv
 source .venv/bin/activate      # Windows: .venv\Scripts\activate
-
 pip install -r requirements.txt
-```
 
-Then, for correct Hindi PDF text, download **Noto Sans Devanagari**
-(free Google font, search "Noto Sans Devanagari download") and place
-`NotoSansDevanagari-Regular.ttf` inside the `fonts/` folder. See
-`fonts/README.txt` for details. The app still runs without it, but
-Hindi PDFs won't render Devanagari script correctly until it's added.
-
-## 2. Run it locally (no internet needed from here on)
-
-```bash
+# run it (works offline from here on)
 streamlit run app.py
 ```
 
-This opens the app in your browser at `http://localhost:8501` —
-`localhost` means it's served entirely from your own machine, so you
-can turn off Wi-Fi and it keeps working.
+Opens at `http://localhost:8501`. For correct Hindi PDF text, add `NotoSansDevanagari-Regular.ttf` to the `fonts/` folder — see `fonts/README.txt`.
 
-## 3. Wiring in your real YOLO11n model
+---
 
-Open `utils/analyze.py` — the mock function `run_model(image_path)`
-is clearly marked. Replace its body with your Ultralytics YOLO
-inference call, and map its output into the same dict shape:
+## 🔌 Wiring in the real YOLO11n model
 
-```python
-{
-  "severity_level": 0-4,
-  "confidence": 0.0-1.0,
-  "flagged": True/False,
-  "detected": {
-     "microaneurysms": True/False,
-     "haemorrhages": True/False,
-     "hard_exudates": True/False,
-     "soft_exudates": True/False,
-  },
-  "model_source": "..."
-}
-```
+Open `utils/analyze.py` and replace the mock body of `run_model()` with your Ultralytics inference call, keeping the same returned dictionary shape (`severity_level`, `confidence`, `flagged`, `detected{...}`). Nothing else in the app needs to change.
 
-Nothing else in the app needs to change — storage, translations, and
-report generation all read from this same shape.
+---
 
-## 4. Pushing to GitHub
+## 👥 Team
 
-```bash
-git init
-git add .
-git commit -m "Offline DR screening app"
-git branch -M main
-git remote add origin <your-repo-url>
-git push -u origin main
-```
-
-`.gitignore` already excludes the `data/` folder so you never
-accidentally commit real or demo patient records to a public repo —
-important since this handles patient health information, even in a
-hackathon demo.
-
-## Notes on the Hindi translations
-
-The Hindi text in `utils/translations.py` was written to be clear and
-medically reasonable for a hackathon demo, but hasn't been reviewed by
-a native clinical Hindi speaker. If you're presenting to real
-clinicians, have someone check the phrasing in `translations.py`
-before relying on it.
+*EKTA,SANSKAR,TAMANNA.*
