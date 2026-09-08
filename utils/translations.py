@@ -1,15 +1,4 @@
-"""
-translations.py
-----------------
-All on-screen and on-report text lives here, in two languages.
-The app never stores label text inside patient_data_input.json —
-only real patient data and model results go in that file. The
-correct label strings are looked up from here at display/PDF time,
-based on whatever language is chosen in the sidebar.
 
-To add a new language later: copy one whole dict, translate the
-values (not the keys), and add it to LABELS below.
-"""
 
 LABELS = {
     "en": {
@@ -32,8 +21,11 @@ LABELS = {
         "NURSE": "Attending Nurse",
         "HISTORY": "Medical History",
         "HISTORY_PLACEHOLDER": "e.g. Diabetes — 8 years, on insulin",
-        "UPLOAD_LABEL": "Retina photo",
-        "UPLOAD_HELP": "Camera-captured retina image. Upload a file for now until the phone+lens hardware is ready.",
+                "UPLOAD_LABEL": "Retina photo",
+        "UPLOAD_HELP": "Upload a retina image file from this device.",
+        "UPLOAD_OPTION": "Upload a photo",
+        "CAMERA_OPTION": "Use camera",
+        "CAMERA_HELP": "Uses this device's camera directly. Only useful once a retina lens attachment is in place.",
         "SAVE_BUTTON": "Save patient",
         "SAVE_SUCCESS": "Patient saved",
 
@@ -97,8 +89,11 @@ LABELS = {
         "NURSE": "उपस्थित नर्स",
         "HISTORY": "चिकित्सा इतिहास",
         "HISTORY_PLACEHOLDER": "जैसे - मधुमेह, 8 वर्ष से, इंसुलिन पर",
-        "UPLOAD_LABEL": "रेटिना फोटो",
-        "UPLOAD_HELP": "कैमरे से ली गई रेटिना छवि। जब तक फोन+लेंस उपकरण तैयार नहीं होता, फ़ाइल अपलोड करें।",
+                "UPLOAD_LABEL": "रेटिना फोटो",
+        "UPLOAD_HELP": "इस डिवाइस से रेटिना छवि फ़ाइल अपलोड करें।",
+        "UPLOAD_OPTION": "फ़ोटो अपलोड करें",
+        "CAMERA_OPTION": "कैमरा उपयोग करें",
+        "CAMERA_HELP": "इस डिवाइस के कैमरे का सीधा उपयोग करता है। यह तभी उपयोगी है जब रेटिना लेंस अटैचमेंट लगा हो।",
         "SAVE_BUTTON": "रोगी सहेजें",
         "SAVE_SUCCESS": "रोगी सहेजा गया",
 

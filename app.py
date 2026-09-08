@@ -1,16 +1,4 @@
-"""
-app.py
-------
-Offline DR screening app - Streamlit frontend.
 
-Run locally with:
-    streamlit run app.py
-
-This never calls out to the internet: patient data is written to
-local JSON/image files under data/patients/, and the AI step
-(utils/analyze.py) runs in-process. Once your Python packages are
-installed (one-time, needs internet), the app works with Wi-Fi off.
-"""
 
 import streamlit as st
 from utils import storage, analyze, report
@@ -69,15 +57,34 @@ def render_new_patient_page():
 
         history = st.text_area(labels["HISTORY"], placeholder=labels["HISTORY_PLACEHOLDER"])
 
-        image_file = st.file_uploader(
-            labels["UPLOAD_LABEL"], type=["jpg", "jpeg", "png"], help=labels["UPLOAD_HELP"]
+        st.markdown(f"**{labels['UPLOAD_LABEL']}**")
+        capture_mode = st.radio(
+            labels["UPLOAD_LABEL"],
+            options=["upload", "camera"],
+            format_func=lambda v: labels["UPLOAD_OPTION"] if v == "upload" else labels["CAMERA_OPTION"],
+            index=0,  # upload stays the default choice for now
+            horizontal=True,
+            label_visibility="collapsed",
         )
+
+        if capture_mode == "upload":
+            image_file = st.file_uploader(
+                labels["UPLOAD_LABEL"], type=["jpg", "jpeg", "png"],
+                help=labels["UPLOAD_HELP"], label_visibility="collapsed",
+            )
+        else:
+            image_file = st.camera_input(
+                labels["UPLOAD_LABEL"], help=labels["CAMERA_HELP"], label_visibility="collapsed",
+            )
 
         submitted = st.form_submit_button(labels["SAVE_BUTTON"], type="primary")
 
         if submitted:
-            image_bytes = image_file.read() if image_file else None
-            image_ext = ("." + image_file.name.split(".")[-1].lower()) if image_file else ".jpg"
+            image_bytes = image_file.getvalue() if image_file else None
+            if capture_mode == "camera":
+                image_ext = ".jpg"  # st.camera_input always returns JPEG
+            else:
+                image_ext = ("." + image_file.name.split(".")[-1].lower()) if image_file else ".jpg"
             record = storage.save_patient(
                 name=name, age=int(age), gender=gender, nurse=nurse,
                 history=history, image_bytes=image_bytes, image_ext=image_ext,
