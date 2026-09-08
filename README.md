@@ -1,4 +1,4 @@
-# 👁️ Offline Retina Screening — Explainable AI for DR Screening in Rural India
+ # 👁️ Dhrishti — Offline Retina Screening — Explainable AI for DR Screening in Rural India
 
 **MathWorks Hackathon Problem Statement:** Explainable AI for Diabetic Retinopathy Screening in Rural India
 **Category:** Software · **Domain:** MedTech / BioTech / HealthTech

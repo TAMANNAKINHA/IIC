@@ -4,7 +4,7 @@ import streamlit as st
 from utils import storage, analyze, report
 from utils.translations import get_labels
 
-st.set_page_config(page_title="Offline Retina Screening", layout="wide")
+st.set_page_config(page_title="Dhrishti", layout="wide")
 
 # ---------------- Sidebar: language + health worker + navigation ----------------
 if "lang" not in st.session_state:

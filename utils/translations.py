@@ -2,7 +2,7 @@
 
 LABELS = {
     "en": {
-        "APP_TITLE": "Offline Retina Screening",
+        "APP_TITLE": "Dhrishti",
         "SIDEBAR_LANGUAGE": "Report language",
         "SIDEBAR_NAV": "Menu",
         "NAV_HISTORY": "Patient history",
@@ -70,7 +70,7 @@ LABELS = {
     },
 
     "hi": {
-        "APP_TITLE": "ऑफ़लाइन रेटिना स्क्रीनिंग",
+        "APP_TITLE": "दृष्टि — ऑफ़लाइन रेटिना स्क्रीनिंग",
         "SIDEBAR_LANGUAGE": "रिपोर्ट की भाषा",
         "SIDEBAR_NAV": "मेनू",
         "NAV_HISTORY": "रोगी इतिहास",
