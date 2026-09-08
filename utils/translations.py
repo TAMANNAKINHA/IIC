@@ -2,7 +2,7 @@
 
 LABELS = {
     "en": {
-        "APP_TITLE": "Dhrishti",
+        "APP_TITLE": "Drishti",
         "SIDEBAR_LANGUAGE": "Report language",
         "SIDEBAR_NAV": "Menu",
         "NAV_HISTORY": "Patient history",
